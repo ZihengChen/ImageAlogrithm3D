@@ -1,6 +1,5 @@
 # ImageAlgorithm3D
 
-
 The result of clustering based on Imaging Algorithm is the following
 <p align="center">
 <img src="plot/readme_decision.png" width="400">
