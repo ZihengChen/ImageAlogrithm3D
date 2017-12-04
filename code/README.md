@@ -25,8 +25,8 @@ In the plot above, neighborhood query is done without structual query. And we ca
 If with structral query, one should expect time consumption as O(NlogN) on CPU and O(logN) on GPU.
 
 <p align="center">
-<img src="plot/result_energy.png" width="400">
-<img src="plot/result_nclus.png" width="400">
+<img src="../plot/result_energy.png" width="400">
+<img src="../plot/result_nclus.png" width="400">
 </p>
 
 
