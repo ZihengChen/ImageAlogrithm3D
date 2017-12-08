@@ -19,8 +19,8 @@ def openclkernel(DeviceID=0):
         lsz = 1024
     else:
         lsz = 1
-    #print("Device: {}".format(device.name))
-    #print("Device MaxWorkGroupSize: {}".format(device.max_work_group_size))
+    print("Device: {}".format(device.name))
+    print("Device MaxWorkGroupSize: {}".format(device.max_work_group_size))
     
     
     prg = cl.Program(context,"""
@@ -53,7 +53,7 @@ def openclkernel(DeviceID=0):
                 //force the exp rate of kernals are 1,4 in r,z direction
                 if ( dz<2.0 && dr<2.0 ){ 
                     rhoi = rhoi + d_e[j] * exp( (- dr/1.0) ) * exp( (- dz/4.0));
-                    //rhoi = rhoi + d_e[j] * 1.0/(dr-1.0) * 1.0/(dz-1.0);
+                    //rhoi = rhoi + d_e[j] * 1.0/(dr+1.0) * 1.0/(0.25*dz+1.0);
                     }
                 }
             d_rho[i] = rhoi;

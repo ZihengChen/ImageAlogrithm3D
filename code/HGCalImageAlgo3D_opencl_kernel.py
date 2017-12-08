@@ -52,8 +52,8 @@ def openclkernel(DeviceID=0):
                 //KERNAL_R,KERNAL_Z= 2,2
                 //force the exp rate of kernals are 1,4 in r,z direction
                 if ( dz<2.0 && dr<2.0 ){ 
-                    rhoi = rhoi + d_e[j] * exp( (- dr/1.0) ) * exp( (- dz/4.0));
-                    //rhoi = rhoi + d_e[j] * 1.0/(dr-1.0) * 1.0/(dz-1.0);
+                    //rhoi = rhoi + d_e[j] * exp( (- dr/1.0) ) * exp( (- dz/4.0));
+                    rhoi = rhoi + d_e[j] * 1.0/(dr+1.0) * 1.0/(0.25*dz+1.0);
                     }
                 }
             d_rho[i] = rhoi;

@@ -1,5 +1,9 @@
 from pylab import *
 import pandas as pd
+import multiprocessing as mp
+import tqdm
+from root_pandas import read_root
+
 from HGCalImageAlgo3D_cuda_kernel import *
 from HGCalImageAlgo3D_opencl_kernel import *
 
@@ -354,3 +358,14 @@ def ImageAlgorithm_opencl(dfevt_input,ievent,device):
                            "clust_inputenergy":[clust_inputenergy],
                            "clust_includedenergy":[clust_includedenergy]})
     return dfevt,dfclus
+
+
+def ImageAlgorithm_opencl_job(DatasetFile,device):
+    df  = pd.read_pickle(DatasetFile)
+    dfresultclus = pd.DataFrame()
+    #for ievt in tqdm.tqdm(np.unique(df.id)):
+    for ievt in np.unique(df.id):
+        _,dfevtclus   = ImageAlgorithm_opencl(df[df.id==ievt],ievt,device)
+        dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
+    #q.put( dfresultclus )
+

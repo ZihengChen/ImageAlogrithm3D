@@ -17,7 +17,8 @@ mod = SourceModule("""
             float dz = abs(d_z[j]-zi);
             //KERNAL_R,KERNAL_Z= 2,2
             if ( dz<2.0 && dr<2.0 ){ 
-                rhoi = rhoi + d_e[j] * exp(- dr/1.0) * exp(- dz/4.0);
+                //rhoi = rhoi + d_e[j] * exp(- dr/1.0) * exp(- dz/4.0);
+                rhoi = rhoi + d_e[j] * 1.0/(dr+1.0) * 1.0/(0.25*dz+1.0);
                 }
             }
         d_rho[i] = rhoi;
