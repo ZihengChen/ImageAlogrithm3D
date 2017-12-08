@@ -8,7 +8,7 @@ The result of clustering based on Imaging Algorithm is the following
 
 The opencl implementation allows running imaging algorithm on CPU or GPU from NVIDIA, AMD and Intel.
 <p align="center">
-<img src="plot/readme_time.png" width="400">
+<img src="plot/test_final.png" width="400">
 </p>
 
 Imaging Algorithm, together with many well acknowleged clustering algortihm like DBSCAN, gives a guaranteed result with a complexity
