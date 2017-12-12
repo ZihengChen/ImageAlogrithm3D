@@ -1,5 +1,8 @@
 # ImageAlgorithm3D
 
+A  simple [introduction page](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/) for this project is [here](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/)
+
+
 The result of clustering based on Imaging Algorithm is the following
 <p align="center">
 <img src="plot/readme_decision.png" width="400">
@@ -29,3 +32,6 @@ If with structral query, one should expect time consumption as O(NlogN) on CPU a
 <img src="plot/result_nclus.png" width="400">
 </p>
 
+<p align="center">
+<img src="plot/dis_pu200.png" width="600">
+</p>
