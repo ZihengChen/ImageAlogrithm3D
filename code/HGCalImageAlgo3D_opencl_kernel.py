@@ -30,7 +30,7 @@ def openclkernel(DeviceID=0):
      
      __kernel void rho_opencl(__global float *d_rho,
                               // input parameters
-                              int nrech, 
+                              int nrech, float KERNAL_R, float KERNAL_Z, float KERNAL_EXPC,
                               __global float *d_x,
                               __global float *d_y,
                               __global float *d_z,
@@ -49,11 +49,14 @@ def openclkernel(DeviceID=0):
                 float dz = (d_z[j]-zi);
                 // cannot get abs(dz) work
                 if (dz<0) dz=-dz; 
-                //KERNAL_R,KERNAL_Z= 2,2
-                //force the exp rate of kernals are 1,4 in r,z direction
-                if ( dz<2.0 && dr<2.0 ){ 
-                    //rhoi = rhoi + d_e[j] * exp( (- dr/1.0) ) * exp( (- dz/4.0));
-                    rhoi = rhoi + d_e[j] * 1.0/(dr+1.0) * 1.0/(0.25*dz+1.0);
+
+
+                if ( dz<=KERNAL_Z && dr<KERNAL_R ){ 
+                    // on some device e.g. Intel Iris Pro, function exp() is not defined
+                    // use Tylor expansion for exp() instead
+                    //rhoi = rhoi + d_e[j] * exp( (- dr/1.0) );
+                    float d = KERNAL_EXPC*dr;
+                    rhoi = rhoi + d_e[j] * (1-d+d*d/2-d*d*d/6+d*d*d*d/24-d*d*d*d*d/120);
                     }
                 }
             d_rho[i] = rhoi;
@@ -117,6 +120,54 @@ def openclkernel(DeviceID=0):
                     nhi = j;
                     }
                 }
+            d_nh[i] = nhi;
+            d_nhd[i]= nhdi;
+            }
+        }
+        
+    ////////////////////////////
+    // 4. get rhorank and nh+nhd 2in1
+    ////////////////////////////
+    __kernel void rhoranknh_opencl(__global int *d_rhorank,
+                                   __global int *d_nh, 
+                                   __global float *d_nhd,
+                                   // input parameters
+                                   int nrech,
+                                   __global float *d_x, 
+                                   __global float *d_y,
+                                   __global float *d_z,
+                                   __global float *d_rho
+                                   ){
+        int i = get_group_id(0)*get_local_size(0)+get_local_id(0);
+        if(i<nrech){
+            float xi = d_x[i];
+            float yi = d_y[i];
+            float zi = d_z[i];
+            float rhoi = d_rho[i];
+            
+            int rhoranki = 0;
+            int nhi = i;
+            float nhdi = 200.0; // MAXDISTANCE = 1000
+            
+            for (int j=0; j<nrech; j++){
+        
+                // rhorank
+                if(d_rho[j]>rhoi) rhoranki++;
+                if(d_rho[j]==rhoi){
+                    if (j<i) rhoranki++;
+                    }
+                
+           
+                // nh and nhd
+                float drr = sqrt((d_x[j]-xi)*(d_x[j]-xi) + (d_y[j]-yi)*(d_y[j]-yi)+ (d_z[j]-zi)*(d_z[j]-zi));
+                //if nearer and higher
+                if ( (drr<nhdi) && (d_rho[j]>rhoi)){ 
+                    nhdi = drr;
+                    nhi = j;
+                    }
+                }
+            
+            d_rhorank[i] = rhoranki;
             d_nh[i] = nhi;
             d_nhd[i]= nhdi;
             }

@@ -7,13 +7,42 @@ from root_pandas import read_root
 from HGCalImageAlgo3D_cuda_kernel import *
 from HGCalImageAlgo3D_opencl_kernel import *
 
+def SetImagingAlgo(KERNAL_R_ = 2,#cm
+                   KERNAL_Z_ = 1,#cm
+                   KERNAL_EXPC_ = 0.5, #cm
+                   MAXDISTANCE_ = 200,#cm
+                   DECISION_RHO_KAPPA_ = 10,
+                   DECISION_NHD_ = 4,#cm
+                   AFFINITY_Z_ = 0.5,
+                   CONTINUITY_NHD_ = 6#cm
+                  ):
+    
+    global KERNAL_R,KERNAL_Z,KERNAL_EXPC
+    global MAXDISTANCE,DECISION_RHO_KAPPA,DECISION_RHO_KAPPA,DECISION_NHD
+    global AFFINITY_Z,CONTINUITY_NHD
+    
+    KERNAL_R = KERNAL_R_
+    KERNAL_Z = KERNAL_Z_ 
+    KERNAL_EXPC = KERNAL_EXPC_
+    MAXDISTANCE = MAXDISTANCE_
+    DECISION_RHO_KAPPA = DECISION_RHO_KAPPA_
+    DECISION_NHD = DECISION_NHD_
+    AFFINITY_Z = AFFINITY_Z_
+    CONTINUITY_NHD = CONTINUITY_NHD_
 
-KERNAL_R,KERNAL_Z= 2,2 #cm
-MAXDISTANCE = 200 #cm
-DECISION_RHO_KAPPA = 10
-DECISION_NHD = 5 #cm
-AFFINITY_Z = 0.5
-CONTINUITY_NHD = 4 #cm
+
+
+def RunImagingAlgo(df,N=100):
+    dfresultclus     = pd.DataFrame()
+    for ievt in tqdm.tqdm(np.unique(df.id)):
+        if ievt<N:
+            #_,dfevtclus   = ImageAlgorithm_cpu (df[df.id==ievt],ievt)
+            #_,dfevtclus   = ImageAlgorithm_cuda(df[df.id==ievt],ievt)
+            _,dfevtclus   = ImageAlgorithm_opencl(df[df.id==ievt],ievt,1)
+            dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
+    return dfresultclus
+
+
 
 def ImageAlgorithm_cpu(dfevt_input,ievent):
     dfevt = dfevt_input
@@ -148,15 +177,19 @@ def ImageAlgorithm_cuda(dfevt_input,ievent):
 
     # 2. Calculate rho, rhorank, nh, nhd on GPU
     rho_cuda(d_rho,
-             nrech,d_x,d_y,d_z,d_e,
+             nrech,np.float32( KERNAL_R),np.float32( KERNAL_Z),np.float32( KERNAL_EXPC),
+             d_x,d_y,d_z,d_e,
              grid=(int(nrech/1024)+1,1,1),block=(int(1024),1,1))
+    rhoranknh_cuda(d_rhorank,d_nh,d_nhd,
+                   nrech,d_x,d_y,d_z,d_rho,
+                   grid=(int(nrech/1024)+1,1,1),block=(int(1024),1,1))
 
-    rhorank_cuda(d_rhorank,nrech,d_rho,
-                 grid=(int(nrech/1024)+1,1,1),block=(int(1024),1,1))
+    #rhorank_cuda(d_rhorank,nrech,d_rho,
+    #             grid=(int(nrech/1024)+1,1,1),block=(int(1024),1,1))
 
-    nh_cuda(d_nh,d_nhd,
-            nrech,d_x,d_y,d_z,d_rho,
-            grid=(int(nrech/1024)+1,1,1),block=(int(1024),1,1))
+    #nh_cuda(d_nh,d_nhd,
+    #        nrech,d_x,d_y,d_z,d_rho,
+    #        grid=(int(nrech/1024)+1,1,1),block=(int(1024),1,1))
 
     # 2. Copy out the result from GPU to CPU
     cuda.memcpy_dtoh(rho,d_rho)
@@ -274,17 +307,22 @@ def ImageAlgorithm_opencl(dfevt_input,ievent,device):
 
     prg.rho_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
                    d_rho,
-                   nrech,d_x,d_y,d_z,d_e
+                   nrech,np.float32( KERNAL_R),np.float32( KERNAL_Z),np.float32( KERNAL_EXPC),
+                   d_x,d_y,d_z,d_e
                   )
+    prg.rhoranknh_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
+                         d_rhorank,d_nh,d_nhd,
+                         nrech,d_x,d_y,d_z,d_rho
+                         )
 
-    prg.rhorank_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
-                       d_rhorank,
-                       nrech,d_rho
-                       )
-    prg.nh_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
-                  d_nh,d_nhd,
-                  nrech,d_x,d_y,d_z,d_rho
-                 )
+    #prg.rhorank_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
+    #                   d_rhorank,
+    #                   nrech,d_rho
+    #                   )
+    #prg.nh_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
+    #              d_nh,d_nhd,
+    #              nrech,d_x,d_y,d_z,d_rho
+    #             )
 
     cl.enqueue_copy(queue, rho, d_rho)
     cl.enqueue_copy(queue, rhorank, d_rhorank)
@@ -359,13 +397,4 @@ def ImageAlgorithm_opencl(dfevt_input,ievent,device):
                            "clust_includedenergy":[clust_includedenergy]})
     return dfevt,dfclus
 
-
-def ImageAlgorithm_opencl_job(DatasetFile,device):
-    df  = pd.read_pickle(DatasetFile)
-    dfresultclus = pd.DataFrame()
-    #for ievt in tqdm.tqdm(np.unique(df.id)):
-    for ievt in np.unique(df.id):
-        _,dfevtclus   = ImageAlgorithm_opencl(df[df.id==ievt],ievt,device)
-        dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
-    #q.put( dfresultclus )
 

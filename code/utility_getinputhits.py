@@ -1,11 +1,12 @@
 from root_pandas import read_root
 from pylab import *
 import pandas as pd
-from plotgeom import circles
 from utility_rechitcalibration import *
+
 ECUT = 3
 DatasetFolder = '/Users/zihengchen/Documents/HGCal/clustering/data/'
-DatasetFile   = 'CMSSW9304_partGun_PDGid22_x100_E30.0To30.0_NTUP'
+#DatasetFile   = 'CMSSW9304_partGun_PDGid22_x100_E30.0To30.0_NTUP'
+DatasetFile   = 'SinglePi_noPU'
 
 df = read_root(DatasetFolder+DatasetFile+".root",'ana/hgc')
 collist = [ 'rechit_x', 'rechit_y','rechit_z','rechit_energy','rechit_layer','rechit_thickness']
@@ -34,4 +35,4 @@ for index, row in df.iterrows():
         temp = np.c_[eventid,layer,energy,ox,oy,oz,x,y,z]
         temp = pd.DataFrame(temp,columns=collist)
         dfrech = dfrech.append(temp,ignore_index=True)
-dfrech.to_pickle("../data/input/"+DatasetFile+"_rechit.pkl")
+dfrech.to_pickle(DatasetFolder+DatasetFile+"_rechit.pkl")
