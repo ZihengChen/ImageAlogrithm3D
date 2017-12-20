@@ -4,7 +4,7 @@
 <img src="plot/dis_pu200.png" width="600">
 </p>
 
-A  simple [introduction page](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/) for this project is [here](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/)
+The interative webpage of this event is [here](file:///Users/zihengchen/Documents/HGCal/workplace/notebooks/debug/SinglePi_PU200.html) in plotly where you can rotate and zoom the plot. A  simple [documentation page](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/) for this project is [here](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/).
 
 
 The result of clustering based on Imaging Algorithm is the following
@@ -32,8 +32,7 @@ In the plot above, neighborhood query is done without structual query. And we ca
 If with structral query, one should expect time consumption as O(NlogN) on CPU and O(logN) on GPU.
 
 <p align="center">
-<img src="plot/result_energy.png" width="400">
-<img src="plot/result_nclus.png" width="400">
+<img src="plot/result_energy.png" width="600">
 </p>
 
 
