@@ -5,6 +5,7 @@
 </p>
 
 The interative webpage of this event is [here](https://plot.ly/%7Ezihengchen/18/) in plotly where you can rotate and zoom the plot.
+
 A short [documentation page](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/) for this project is [here](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/).
 
 
