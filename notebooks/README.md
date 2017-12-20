@@ -1,7 +1,7 @@
 # ImageAlgorithm3D
 
 <p align="center">
-<img src="../plot/dis_pu200.png" width="600">
+<img src="../plot/dis_pu200.png" width="800">
 </p>
 
 The interative webpage of this event is [here](file:///Users/zihengchen/Documents/HGCal/workplace/notebooks/debug/SinglePi_PU200.html) in plotly where you can rotate and zoom the plot. A  simple [documentation page](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/) for this project is [here](https://galleryziheng.wordpress.com/2017/12/08/gpu-acceleration-of-imaging-algorithm/).
