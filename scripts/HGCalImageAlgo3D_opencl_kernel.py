@@ -111,7 +111,7 @@ def openclkernel(DeviceID=0):
             float rhoi = d_rho[i];
             
             int nhi = i;
-            float nhdi = 200.0; // MAXDISTANCE = 1000
+            float nhdi = 200.0; // MAXDISTANCE = 200
             
             for (int j=0; j<nrech; j++){
                 float drr = sqrt((d_x[j]-xi)*(d_x[j]-xi) + (d_y[j]-yi)*(d_y[j]-yi)+ (d_z[j]-zi)*(d_z[j]-zi));
@@ -148,7 +148,7 @@ def openclkernel(DeviceID=0):
             
             int rhoranki = 0;
             int nhi = i;
-            float nhdi = 200.0; // MAXDISTANCE = 1000
+            float nhdi = 200.0; // MAXDISTANCE = 200
             
             for (int j=0; j<nrech; j++){
         

@@ -62,9 +62,11 @@ def getcmsswmultclust(DatasetDir,DatasetFile,N):
     count3d = np.array(count3d)
     return energy3d, count3d
 
-def getoutputclust(DatasetDir,DatasetFile,N,deltarho=5):
-    dfresultclus = pd.read_pickle(DatasetDir+"output/"+DatasetFile+"_OutputClus.pkl")
-    dfgen        = pd.read_pickle(DatasetDir+"input/"+DatasetFile+"_gen.pkl")
+def getoutputclust(DatasetDir,DatasetFile,N,deltarho=5,dfresultclus=None,dfgen=None):
+    if dfresultclus is None:
+        dfresultclus = pd.read_pickle(DatasetDir+"output/"+DatasetFile+"_OutputClus.pkl")
+    if dfgen is None:
+        dfgen        = pd.read_pickle(DatasetDir+"input/"+DatasetFile+"_gen.pkl")
     genparticle = []
     energy3d,count3d = [],[]
     for i, tempclus in dfresultclus.iterrows():
