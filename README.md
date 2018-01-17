@@ -1,5 +1,5 @@
 # ImageAlgorithm3D
-
+cuda only on Bahamut
 <p align="center">
 <img src="plot/dis_pu200.png" width="800">
 </p>
