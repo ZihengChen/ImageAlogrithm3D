@@ -2,6 +2,60 @@ from pylab import *
 import pandas as pd
 from root_pandas import read_root
 
+
+class Benchmark:
+    def __init__(self, datasetFile, N=100):
+        self.datasetDir  = '/home/zchen/Documents/ImageAlogrithm3D/data/'
+        self.datasetFile = datasetFile
+        self.dfgen       = pd.read_pickle(self.datasetDir+"input/"+self.datasetFile+"_gen.pkl")
+        self.dfresultclus= pd.read_pickle(self.datasetDir+"output/"+self.datasetFile+"_OutputClus.pkl")
+        self.N = N
+        
+    def getEnergyEfficiency(self, deltarho = 5):
+        energyEff = []
+        for i, tempclus in self.dfresultclus.iterrows():
+            if abs(tempclus.id) < self.N:
+                evtid   = tempclus.id
+                tempgen = dfgen[dfgen.id==evtid]
+                genx    = float(tempgen['gx'])
+                geny    = float(tempgen['gy'])
+                genz    = float(tempgen['gz'])
+                gene    = float(tempgen['ge'])
+                
+                clusz = genz
+                clusx = tempclus.clust_x/tempclus.clust_z*clusz
+                clusy = tempclus.clust_y/tempclus.clust_z*clusz
+                cluse = tempclus.clust_energy
+
+                slt   = (((clusx-genx)**2+(clusy-geny)**2)**0.5 < deltarho)
+                energy = sum(cluse[slt])
+                #print("{},{}".format(energy,gene))
+                energyEff.append(energy/gene)
+        self.energyEff = np.array(energyEff)
+        return self.energyEff
+    
+    def getEffSigma_EnergyEfficiency(self):
+        return calcEffSigma(self.energyeff)
+    
+    def calcEffSigma(self, arr):
+        # return half width and mean
+        ntotal = len(arr)
+        npeak  = int(0.683*ntotal)
+        ewidth = int(1e5)
+
+        e = sort(arr)[::-1]
+        for i in range(ntotal-npeak-1):
+            temp = e[i]-e[i+npeak]
+            if temp<ewidth:
+                ewidth = temp
+                mean = e[i:i+npeak].mean()
+                
+        return ewidth/2,mean
+
+
+
+
+
 def energyeff(DatasetDir,DatasetFile,N,deltarho=5,test=None):
     dfgen = pd.read_pickle(DatasetDir+"input/"+DatasetFile+"_gen.pkl")
     if test is not None:
