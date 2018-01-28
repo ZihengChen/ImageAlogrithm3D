@@ -1,27 +1,24 @@
-from root_pandas import read_root
 from pylab import *
 import pandas as pd
-from utility_rechitcalibration import *
+from root_pandas import read_root
+from HGCal_Calibration import *
 from IPython.display import clear_output
 
 DatasetFolder = sys.argv[1]
-DatasetFile   = sys.argv[2] #'CMSSW9304_partGun_PDGid22_x100_E30.0To30.0_NTUP'
+DatasetFile   = sys.argv[2]
 ECUT          = float(sys.argv[3]) #3 or 5 are reasonable numbers
 NEVENTS       = int(sys.argv[4]) 
+RecHitCalib   = RecHitCalibration()
 
-df = read_root(DatasetFolder+DatasetFile+".root",'ana/hgc')
-collist = [ 'rechit_x', 'rechit_y','rechit_z','rechit_energy','rechit_layer','rechit_thickness',
-            'genpart_dvx','genpart_dvy','genpart_dvz','genpart_energy','genpart_gen']
-for col in df.columns:
-    if not col in collist:
-        df.drop(col, axis=1, inplace=True) 
-
-RecHitCalib = RecHitCalibration()
+df = read_root(DatasetFolder+DatasetFile+".root",'ana/hgc', 
+               columns=['rechit_x', 'rechit_y','rechit_z','rechit_energy','rechit_layer','rechit_thickness',
+                        'genpart_dvx','genpart_dvy','genpart_dvz','genpart_energy','genpart_gen'])
 
 collist    = ["id","layer","energy", "ox","oy","oz","x","y","z"]
 collistgen = ["id","gx","gy","gz","ge"]
 dfrech     = pd.DataFrame(columns=collist)
 dfgen      = pd.DataFrame(columns=collistgen)
+
 
 for index, row in df.iterrows():
     if (index < NEVENTS) and (index>0):
@@ -84,7 +81,6 @@ for index, row in df.iterrows():
         dfgen = dfgen.append(temp,ignore_index=True)
         
 
-
-#dfrech.to_pickle(DatasetFolder+"input/"+DatasetFile+"_rechit.pkl")
-dfrech.to_hdf(DatasetFolder+"input/"+DatasetFile+"_rechit.h5",key="table",mode='w',complevel=3)
+#dfrech.to_hdf(DatasetFolder+"input/"+DatasetFile+"_rechit.h5",key="table",mode='w',complevel=3)
+dfrech.to_pickle(DatasetFolder+"input/"+DatasetFile+"_rechit.pkl")
 dfgen.to_pickle(DatasetFolder+"input/"+DatasetFile+"_gen.pkl")

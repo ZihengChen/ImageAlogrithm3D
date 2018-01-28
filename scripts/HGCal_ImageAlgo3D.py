@@ -1,10 +1,7 @@
 from pylab import *
 import pandas as pd
-import multiprocessing as mp
 import tqdm
-from root_pandas import read_root
-
-from HGCalImageAlgo3D_cuda_kernel import *
+from HGCal_ImageAlgo3D_kernel import *
 
 
 class ImagingAlgo():
@@ -32,19 +29,15 @@ class ImagingAlgo():
     def RunImagingAlgo(self, df, N=100, verb=True):
         dfresultclus     = pd.DataFrame()
         if verb:
-            for ievt in tqdm.tqdm(np.unique(np.abs(df.id))):
-                if ievt < N:
-                    _,dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==ievt],ievt)
-                    dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
-                    _,dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==-ievt],-ievt)
-                    dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
+            looplist = tqdm.tqdm(np.unique(np.abs(df.id)))
         else:
-            for ievt in np.unique(np.abs(df.id)):
-                if ievt < N:
-                    _,dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==ievt],ievt)
-                    dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
-                    _,dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==-ievt],-ievt)
-                    dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
+            looplist = np.unique(np.abs(df.id))
+        for ievt in looplist:
+            if ievt < N:
+                _,dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==ievt],ievt)
+                dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
+                _,dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==-ievt],-ievt)
+                dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
         return dfresultclus
 
 

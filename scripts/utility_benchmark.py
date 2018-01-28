@@ -4,11 +4,14 @@ from root_pandas import read_root
 
 
 class Benchmark:
-    def __init__(self, datasetFile, N=100):
-        self.datasetDir  = '/home/zchen/Documents/ImageAlogrithm3D/data/'
+    def __init__(self, datasetFile, df=None, N=100):
+        self.datasetDir  = '../data/'
         self.datasetFile = datasetFile
         self.dfgen       = pd.read_pickle(self.datasetDir+"input/"+self.datasetFile+"_gen.pkl")
-        self.dfresultclus= pd.read_pickle(self.datasetDir+"output/"+self.datasetFile+"_OutputClus.pkl")
+        if df is None:
+            self.dfresultclus = pd.read_pickle(self.datasetDir+"output/"+self.datasetFile+"_OutputClus.pkl")
+        else:
+            self.dfresultclus = df
         self.N = N
         
     def getEnergyEfficiency(self, deltarho = 5):
@@ -16,7 +19,7 @@ class Benchmark:
         for i, tempclus in self.dfresultclus.iterrows():
             if abs(tempclus.id) < self.N:
                 evtid   = tempclus.id
-                tempgen = dfgen[dfgen.id==evtid]
+                tempgen = self.dfgen[self.dfgen.id==evtid]
                 genx    = float(tempgen['gx'])
                 geny    = float(tempgen['gy'])
                 genz    = float(tempgen['gz'])
@@ -31,11 +34,13 @@ class Benchmark:
                 energy = sum(cluse[slt])
                 #print("{},{}".format(energy,gene))
                 energyEff.append(energy/gene)
-        self.energyEff = np.array(energyEff)
-        return self.energyEff
+        energyEff = np.array(energyEff)
+        return energyEff
     
-    def getEffSigma_EnergyEfficiency(self):
-        return calcEffSigma(self.energyeff)
+    def getEffSigma_EnergyEfficiency(self, deltarho = 5):
+        eff = self.getEnergyEfficiency(deltarho)
+        effSigma_energyEff = self.calcEffSigma(eff)
+        return effSigma_energyEff
     
     def calcEffSigma(self, arr):
         # return half width and mean
@@ -53,9 +58,7 @@ class Benchmark:
         return ewidth/2,mean
 
 
-
-
-
+'''
 def energyeff(DatasetDir,DatasetFile,N,deltarho=5,test=None):
     dfgen = pd.read_pickle(DatasetDir+"input/"+DatasetFile+"_gen.pkl")
     if test is not None:
@@ -144,3 +147,4 @@ def getoutputclust(DatasetDir,DatasetFile,N,deltarho=5,dfresultclus=None,dfgen=N
             energy3d.append(energy)
             count3d.append(cluse[slt].size)
     return np.array(genparticle), np.array(energy3d),np.array(count3d)
+'''
