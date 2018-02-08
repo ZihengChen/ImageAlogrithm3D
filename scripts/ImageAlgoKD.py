@@ -115,7 +115,7 @@ class ImageAlgoKD():
         for i in range(nPoints):
             dr = self.dis_numpy(Points, Points[i])
             local = (dr<self.KERNAL_R)
-            irho = np.sum( wPoints[local] * np.exp( -dr[local]/self.KERNAL_R_NORM) )
+            irho = np.sum( wPoints[local] * np.exp( - (dr[local]/self.KERNAL_R_NORM)**self.KERNAL_POWER ))
             rho.append(irho)
 
         rho = np.array(rho)
