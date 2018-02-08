@@ -1,27 +1,27 @@
 from pylab import *
 import pandas as pd
-from ImageAlgoKD_kernel_cuda import *
+from ImageAlgoKD_kernel import *
 
 class ImageAlgoKD():
     def __init__(self,
                  MAXDISTANCE        = 1.5,
                  KERNAL_R           = 0.6,
                  KERNAL_R_NORM      = 0.4,
-                 KERNAL_POWER       = 2.0,
+                 KERNAL_R_POWER     = 2.0,
                  DECISION_RHO_KAPPA = 4.0,
                  DECISION_NHD       = 0.6,
                  CONTINUITY_NHD     = 0.7
                 ):
         
-        self.MAXDISTANCE    = MAXDISTANCE
-        self.KERNAL_R       = KERNAL_R
-        self.KERNAL_R_NORM  = KERNAL_R_NORM
-        self.KERNAL_POWER   = KERNAL_POWER
-        self.DECISION_RHO_KAPPA = DECISION_RHO_KAPPA
-        self.DECISION_NHD   = DECISION_NHD
-        self.CONTINUITY_NHD = CONTINUITY_NHD
+        self.MAXDISTANCE    = np.float32(MAXDISTANCE)
+        self.KERNAL_R       = np.float32(KERNAL_R)
+        self.KERNAL_R_NORM  = np.float32(KERNAL_R_NORM)
+        self.KERNAL_R_POWER = np.float32(KERNAL_R_POWER)
+        self.DECISION_RHO_KAPPA = np.float32(DECISION_RHO_KAPPA)
+        self.DECISION_NHD   = np.float32(DECISION_NHD)
+        self.CONTINUITY_NHD = np.float32(CONTINUITY_NHD)
     
-    def run_ImageAlgoKD_CUDA(self, Points, wPoints, ReturnDF=False):
+    def run_ImageAlgoKD_cuda(self, Points, wPoints, ReturnDF=False):
         nPoints,kPoints = Points.shape
         
         Points  = Points .astype(np.float32)
@@ -47,12 +47,12 @@ class ImageAlgoKD():
 
         rho_cuda(d_rho, d_Points, d_wPoints,
                  nPoints, kPoints, 
-                 np.float32(self.KERNAL_R), np.float32(self.KERNAL_R_NORM),np.float32(self.KERNAL_POWER),
+                 self.KERNAL_R, self.KERNAL_R_NORM, self.KERNAL_R_POWER,
                  grid=(int(nPoints/1024)+1,1,1),block=(int(1024),1,1))
 
         rhoranknh_cuda(d_rhorank, d_nh,d_nhd, d_Points, d_rho,
                        nPoints, kPoints, 
-                       np.float32(self.MAXDISTANCE),
+                       self.MAXDISTANCE,
                        grid=(int(nPoints/1024)+1,1,1),block=(int(1024),1,1))
 
 
@@ -115,7 +115,7 @@ class ImageAlgoKD():
         for i in range(nPoints):
             dr = self.dis_numpy(Points, Points[i])
             local = (dr<self.KERNAL_R)
-            irho = np.sum( wPoints[local] * np.exp( - (dr[local]/self.KERNAL_R_NORM)**self.KERNAL_POWER ))
+            irho = np.sum( wPoints[local] * np.exp( - (dr[local]/self.KERNAL_R_NORM)**self.KERNAL_R_POWER ))
             rho.append(irho)
 
         rho = np.array(rho)
