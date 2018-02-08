@@ -5,11 +5,11 @@ from ImageAlgoKD_kernel_cuda import *
 class ImageAlgoKD():
     def __init__(self,
                  MAXDISTANCE        = 1.5,
-                 KERNAL_R           = 0.7,
-                 KERNAL_R_NORM      = 0.5,
+                 KERNAL_R           = 0.6,
+                 KERNAL_R_NORM      = 0.4,
                  KERNAL_POWER       = 2.0,
                  DECISION_RHO_KAPPA = 4.0,
-                 DECISION_NHD       = 0.7,
+                 DECISION_NHD       = 0.6,
                  CONTINUITY_NHD     = 0.7
                 ):
         
