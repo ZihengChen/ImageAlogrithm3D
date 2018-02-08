@@ -113,9 +113,9 @@ class ImageAlgoKD():
         # 1. find rho 
         rho = []
         for i in range(nPoints):
-            dr = dis(points, points[i])
+            dr = self.dis_numpy(Points, Points[i])
             local = (dr<self.KERNAL_R)
-            irho = np.sum( points_weight[local] * np.exp( -dr[local]/self.KERNAL_R_NORM) )
+            irho = np.sum( wPoints[local] * np.exp( -dr[local]/self.KERNAL_R_NORM) )
             rho.append(irho)
 
         rho = np.array(rho)
@@ -140,7 +140,7 @@ class ImageAlgoKD():
                 nh. append(i)
                 nhd.append(self.MAXDISTANCE)
             else:
-                drr  = dis(points[higher], points[i])
+                drr  = self.dis_numpy(Points[higher], Points[i])
                 temp = np.arange(len(rho))[higher]
                 nh. append(temp[np.argmin(drr)])
                 nhd.append(np.min(drr))
@@ -178,3 +178,6 @@ class ImageAlgoKD():
             return result
         else:
             return cluster
+
+    def dis_numpy(self, p1,p2):
+        return np.sqrt( np.sum((p1-p2)**2, axis=-1) )
