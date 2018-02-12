@@ -16,7 +16,8 @@ class GA:
         self.noise_amp   = noise_amp
         
         
-        self.pop = np.random.uniform(0, 1, size = (self.pop_size, self.DNA_size))
+        #self.pop = np.random.uniform(0, 1, size = (self.pop_size, self.DNA_size))
+        self.pop = 0.05*np.ones( [self.pop_size, self.DNA_size])
 
     def get_pop_fitness(self):    
         pop_fitness = []
