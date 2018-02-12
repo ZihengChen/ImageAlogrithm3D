@@ -8,7 +8,7 @@ from HGCal_ImageAlgo3D_kernel_cuda import *
 from HGCal_ImageAlgo3D_kernel_opencl import *
 
 
-class ImagingAlgo():
+class ImagingAlgo3D():
     
     def __init__(self, 
                  MAXDISTANCE        = 200,  #cm
@@ -37,95 +37,121 @@ class ImagingAlgo():
 
 
 
-    def RunImagingAlgo(self, df, Nevent=100, verb=True):
-        dfresultclus     = pd.DataFrame()
+    def RunImagingAlgo(self, df, Nevent=100, verb=True, framework='opencl'):
+        # switches of verboros
         if verb:
             looplist = tqdm.tqdm(np.unique(np.abs(df.id)))
         else:
             looplist = np.unique(np.abs(df.id))
 
+        # switches of framework
+        if framework == 'opencl':
+            clustering = self.ImageAlgorithm_opencl
+        if framework == 'cuda':
+            clustering = self.ImageAlgorithm_cuda
+        if framework == 'numpy':
+            clustering = self.ImageAlgorithm_numpy
+
+        # start to run
+        dfresultclus = pd.DataFrame()
         for ievt in looplist:
             if ievt < Nevent:
-                dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==ievt])
+                dfevtclus   = clustering( df[df.id==ievt] )
                 dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
-                dfevtclus   = self.ImageAlgorithm_cuda(df[df.id==-ievt])
+                dfevtclus   = clustering( df[df.id==-ievt] )
                 dfresultclus  = dfresultclus.append(dfevtclus, ignore_index=True)
         return dfresultclus
 
 
     def ImageAlgorithm_numpy(self, dfevt_input, ievent):
-        dfevt = dfevt_input
+        dfevt = df.query(demoevent)
         dfevt = dfevt.reset_index(drop=True)
-        x,y,z,energy = np.array(dfevt.x),np.array(dfevt.y),np.array(dfevt.z),np.array(dfevt.energy)
-        z =  self.AFFINITY_Z*z
+
+        x = np.array(dfevt.x).astype(np.float32)
+        y = np.array(dfevt.y).astype(np.float32)
+        z = (np.array(dfevt.z) * self.LAYER_DISTANCE).astype(np.float32)
+        e = np.array(dfevt.energy).astype(np.float32)
+
+        N = np.int32(e.size)
         
-        nrech = energy.size
         # 1.find rho and rhorank
         rho = []
-        for i in range(nrech):
+        for i in range(N):
             dr = ((x-x[i])**2 + (y-y[i])**2)**0.5
             dz = np.abs(z-z[i])
-            local = (dr<self.KERNAL_R) & (dz<self.KERNAL_Z)
-            irho = np.sum(energy[local] 
-                        *np.exp(-dr[local]/1.0) # fix 0.5*self.KERNAL_R as decay rate
-                        *np.exp(-dz[local]/4.0))  # fix 2*self.KERNAL_Z as decay rate
+            local = (dr<self.KERNAL_R) & (dz<=self.KERNAL_Z)
+            irho  = np.sum( e[local] * np.exp( -(dr[local]/self.KERNAL_R_NORM)**self.KERNAL_R_POWER  ))
             rho.append(irho)
         rho = np.array(rho)
         argsortrho = rho.argsort()[::-1]
         rhorank = np.empty(len(rho), int)
         rhorank[argsortrho] = np.arange(len(rho))
-        dfevt['rho'] = pd.Series(rho, index=dfevt.index)
-        dfevt['rhorank'] = pd.Series(rhorank, index=dfevt.index)
 
         
         # 2.find NearstHiger and distance to NearestHigher
         nh,nhd = [],[]
-        for i in range(nrech):
+        for i in range(N):
             irho = rho[i]
             irank= rhorank[i]
-            if irank==0:
+            
+            higher = rho > irho
+            # if no points is higher
+            if not (True in higher): 
                 nh. append(i)
                 nhd.append(self.MAXDISTANCE)
             else:
-                higher = rho>irho
                 drr  = ((x[higher]-x[i])**2 + (y[higher]-y[i])**2 + (z[higher]-z[i])**2)**0.5
                 temp = np.arange(len(rho))[higher]
                 nh. append(temp[np.argmin(drr)])
                 nhd.append(np.min(drr))
         nh = np.array(nh)
         nhd= np.array(nhd)
-        dfevt['nh'] = pd.Series(nh, index=dfevt.index)
-        dfevt['nhd'] = pd.Series(nhd, index=dfevt.index)
         
         
-        DECISION_RHO = rho.max()/self.DECISION_RHO_KAPPA
-        cluster = -np.ones(nrech,int)
-        # argsortrho has been done in part1.
+        
         # 3.find seeds
+        cluster = -np.ones(N,int)
+        DECISION_RHO = rho.max()/self.DECISION_RHO_KAPPA
+
+        # 2.1 convert rhorank to argsortrho 0(N)
+        argsortrho = np.zeros(N,int)
+        argsortrho[rhorank] = np.arange(N)
+
+        # 2.2 find seeds
         selectseed = (rho>DECISION_RHO) & (nhd>self.DECISION_NHD)
         seedrho = rho[selectseed]
         temp = seedrho.argsort()[::-1]
         seedid = np.empty(len(seedrho), int)
         seedid[temp] = np.arange(len(seedrho))
         cluster[selectseed] = seedid
-        dfevt['isseed'] = pd.Series(selectseed.astype(int), index=dfevt.index)
-        
 
-        # 4.asign clusters to seeds
-        for ith in range(nrech):
+
+        # 2.3 asign clusters to seeds
+        for ith in range(N):
             i = argsortrho[ith]
-            if (cluster[i]<0) & (nhd[i]<self.CONTINUITY_NHD):
+            if  (cluster[i]<0) & (nhd[i]<self.CONTINUITY_NHD):
                 cluster[i] = cluster[nh[i]]
-        dfevt['cluster'] = pd.Series(cluster, index=dfevt.index)
         
+        
+        if ReturnDecision:  
+            dfevt['rho']     = pd.Series(rho,        index=dfevt.index)
+            dfevt['rhorank'] = pd.Series(rhorank,    index=dfevt.index)
+            dfevt['nh']      = pd.Series(nh,         index=dfevt.index)
+            dfevt['nhd']     = pd.Series(nhd,        index=dfevt.index)
+            dfevt['isseed']  = pd.Series(selectseed, index=dfevt.index)
+            dfevt['cluster'] = pd.Series(cluster,    index=dfevt.index)
+   
         
         ########################################
         ##        END of image algorithm      ##
         ##             output result          ##
         ########################################
+        ievent = dfevt.id[0]
+
+
         clustx,clusty,clustz,clustenergy = [],[],[],[]
         for seed in seedid:
-            sel = (dfevt.cluster == seed)
+            sel = (cluster == seed)
             seedenergy = np.sum(dfevt.energy[sel])
             seedx = np.sum(dfevt.energy[sel]*dfevt.ox[sel])/seedenergy
             seedy = np.sum(dfevt.energy[sel]*dfevt.oy[sel])/seedenergy
@@ -142,7 +168,7 @@ class ImagingAlgo():
         clust_inputenergy    = np.sum(dfevt.energy)
         clust_includedenergy = np.sum(clustenergy)
 
-        dfclus = pd.DataFrame({"id"     :[ievent],
+        dfclus = pd.DataFrame({"id"  :[ievent],
                             "clust_n":[len(clustx)],
                             "clust_x":[clustx],
                             "clust_y":[clusty],
@@ -150,7 +176,140 @@ class ImagingAlgo():
                             "clust_energy":[clustenergy],
                             "clust_inputenergy":[clust_inputenergy],
                             "clust_includedenergy":[clust_includedenergy]})
-        return dfevt,dfclus
+        
+        if ReturnDecision:
+            return dfevt,dfclus
+        else:
+            return dfclus
+
+
+    def ImageAlgorithm_opencl(self, dfevt_input, device=1,  ReturnDecision = False):
+        lsz,context,prg = openclkernel(DeviceID=device)
+        queue = cl.CommandQueue(context)
+        
+        dfevt = dfevt_input
+        dfevt = dfevt.reset_index(drop=True)
+
+        x = np.array(dfevt.x).astype(np.float32)
+        y = np.array(dfevt.y).astype(np.float32)
+        z = (np.array(dfevt.z) * self.LAYER_DISTANCE).astype(np.float32)
+        e = np.array(dfevt.energy).astype(np.float32)
+
+        N = np.int32(e.size)
+        
+        ##########################################
+        # STARTING opencl
+        # 1. copy rechits x,y,z,e from CPU to GPU
+
+        LOCALSIZE = int(lsz)
+        GLOBALSIZE= (int(N/LOCALSIZE)+1)*LOCALSIZE
+
+        rho     = np.zeros(N).astype(np.float32)
+        rhorank = np.zeros(N).astype(np.int32)
+        nh      = np.zeros(N).astype(np.int32)
+        nhd     = np.zeros(N).astype(np.float32)
+
+        mem_flags = cl.mem_flags
+        d_x = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=x)
+        d_y = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=y)
+        d_z = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=z)
+        d_e = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=e)
+        d_rho     = cl.Buffer(context, mem_flags.READ_WRITE, rho.nbytes)
+        d_rhorank = cl.Buffer(context, mem_flags.READ_WRITE, rhorank.nbytes)
+        d_nh      = cl.Buffer(context, mem_flags.READ_WRITE, nh.nbytes)
+        d_nhd     = cl.Buffer(context, mem_flags.READ_WRITE, nhd.nbytes)
+
+        prg.rho_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
+                    d_rho,
+                    d_x, d_y, d_z, d_e,
+                    N, self.KERNAL_R, self.KERNAL_R_NORM, self.KERNAL_R_POWER, self.KERNAL_Z
+                    )
+
+        prg.rhoranknh_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
+                    d_rhorank,d_nh,d_nhd,
+                    d_x,d_y,d_z,d_rho,
+                    N, self.MAXDISTANCE
+                    )
+
+
+        cl.enqueue_copy(queue, rho, d_rho)
+        cl.enqueue_copy(queue, rhorank, d_rhorank)
+        cl.enqueue_copy(queue, nh, d_nh)
+        cl.enqueue_copy(queue, nhd, d_nhd)
+        # ENDING opencl
+        ##########################################
+        
+        
+        
+        # 3. now decide seeds and asign rechits to seeds
+        # rho,rhorank,nh,nhd = dfevt.rho,dfevt.rhorank,dfevt.nh,dfevt.nhd
+        argsortrho          = np.zeros(N,int)
+        argsortrho[rhorank] = np.arange(N)
+        cluster             = -np.ones(N,int)
+        DECISION_RHO        = rho.max()/self.DECISION_RHO_KAPPA
+        # find seeds
+        selectseed = (rho>DECISION_RHO) & (nhd>self.DECISION_NHD)
+        seedrho = rho[selectseed]
+        temp = seedrho.argsort()[::-1]
+        seedid = np.empty(len(seedrho), int)
+        seedid[temp] = np.arange(len(seedrho))
+        cluster[selectseed] = seedid
+        
+        # asign clusters to seeds
+        for ith in range(N):
+            i = argsortrho[ith]
+            if  (cluster[i]<0) & (nhd[i]<self.CONTINUITY_NHD):
+                cluster[i] = cluster[nh[i]]
+        
+
+        if ReturnDecision:  
+            dfevt['rho']     = pd.Series(rho,        index=dfevt.index)
+            dfevt['rhorank'] = pd.Series(rhorank,    index=dfevt.index)
+            dfevt['nh']      = pd.Series(nh,         index=dfevt.index)
+            dfevt['nhd']     = pd.Series(nhd,        index=dfevt.index)
+            dfevt['isseed']  = pd.Series(selectseed, index=dfevt.index)
+            dfevt['cluster'] = pd.Series(cluster,    index=dfevt.index)
+   
+        
+        ########################################
+        ##        END of image algorithm      ##
+        ##             output result          ##
+        ########################################
+        ievent = dfevt.id[0]
+
+
+        clustx,clusty,clustz,clustenergy = [],[],[],[]
+        for seed in seedid:
+            sel = (cluster == seed)
+            seedenergy = np.sum(dfevt.energy[sel])
+            seedx = np.sum(dfevt.energy[sel]*dfevt.ox[sel])/seedenergy
+            seedy = np.sum(dfevt.energy[sel]*dfevt.oy[sel])/seedenergy
+            seedz = np.sum(dfevt.energy[sel]*dfevt.oz[sel])/seedenergy
+            
+            clustenergy.append(seedenergy)
+            clustx.append(seedx)
+            clusty.append(seedy)
+            clustz.append(seedz)
+        clustenergy = np.array(clustenergy)
+        clustx = np.array(clustx)
+        clusty = np.array(clusty)
+        clustz = np.array(clustz)
+        clust_inputenergy    = np.sum(dfevt.energy)
+        clust_includedenergy = np.sum(clustenergy)
+
+        dfclus = pd.DataFrame({"id"  :[ievent],
+                            "clust_n":[len(clustx)],
+                            "clust_x":[clustx],
+                            "clust_y":[clusty],
+                            "clust_z":[clustz],
+                            "clust_energy":[clustenergy],
+                            "clust_inputenergy":[clust_inputenergy],
+                            "clust_includedenergy":[clust_includedenergy]})
+        
+        if ReturnDecision:
+            return dfevt,dfclus
+        else:
+            return dfclus
 
 
     def ImageAlgorithm_cuda(self, dfevt_input, ReturnDecision = False):
@@ -224,7 +383,7 @@ class ImagingAlgo():
         argsortrho          = np.zeros(N,int)
         argsortrho[rhorank] = np.arange(N)
         cluster             = -np.ones(N,int)
-        DECISION_RHO        = rho.max()/self.DECISION_RHO_KAPPA
+        DECISION_RHO   = rho.max()/self.DECISION_RHO_KAPPA
         # find seeds
         selectseed = (rho>DECISION_RHO) & (nhd>self.DECISION_NHD)
         seedrho = rho[selectseed]
@@ -275,7 +434,7 @@ class ImagingAlgo():
         clust_inputenergy    = np.sum(dfevt.energy)
         clust_includedenergy = np.sum(clustenergy)
 
-        dfclus = pd.DataFrame({"id"     :[ievent],
+        dfclus = pd.DataFrame({"id"  :[ievent],
                             "clust_n":[len(clustx)],
                             "clust_x":[clustx],
                             "clust_y":[clusty],
@@ -288,126 +447,4 @@ class ImagingAlgo():
             return dfevt,dfclus
         else:
             return dfclus
-
-
-
-    def ImageAlgorithm_opencl(self, dfevt_input,ievent,device):
-        lsz,context,prg = openclkernel(DeviceID=device)
-        queue = cl.CommandQueue(context)
-        
-        dfevt = dfevt_input
-        dfevt = dfevt.reset_index(drop=True)
-        x,y,z,e = np.array(dfevt.x),np.array(dfevt.y),np.array(dfevt.z),np.array(dfevt.energy)
-        z =  self.AFFINITY_Z*z
-        
-        ##########################################
-        # STARTING CUDA
-        # 1. copy rechits x,y,z,e from CPU to GPU
-        nrech = np.int32(e.size)
-        LOCALSIZE = int(lsz)
-        GLOBALSIZE= (int(nrech/LOCALSIZE)+1)*LOCALSIZE
-
-        x = x.astype(np.float32)
-        y = y.astype(np.float32)
-        z = z.astype(np.float32)
-        e = e.astype(np.float32)
-        rho     = np.zeros_like(e)
-        rhorank = np.zeros_like(e).astype(np.int32)
-        nh      = np.zeros_like(e).astype(np.int32)
-        nhd     = np.zeros_like(e)
-
-        mem_flags = cl.mem_flags
-        d_x = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=x)
-        d_y = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=y)
-        d_z = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=z)
-        d_e = cl.Buffer(context, mem_flags.READ_ONLY | mem_flags.COPY_HOST_PTR, hostbuf=e)
-        d_rho     = cl.Buffer(context, mem_flags.READ_WRITE, rho.nbytes)
-        d_rhorank = cl.Buffer(context, mem_flags.READ_WRITE, rhorank.nbytes)
-        d_nh      = cl.Buffer(context, mem_flags.READ_WRITE, nh.nbytes)
-        d_nhd     = cl.Buffer(context, mem_flags.READ_WRITE, nhd.nbytes)
-
-        prg.rho_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
-                    d_rho,
-                    nrech,np.float32( self.KERNAL_R),np.float32( self.KERNAL_Z),np.float32( self.KERNAL_EXPC),
-                    d_x,d_y,d_z,d_e
-                    )
-        prg.rhoranknh_opencl(queue, (GLOBALSIZE,), (LOCALSIZE,),
-                            d_rhorank,d_nh,d_nhd,
-                            nrech,d_x,d_y,d_z,d_rho
-                            )
-
-
-        cl.enqueue_copy(queue, rho, d_rho)
-        cl.enqueue_copy(queue, rhorank, d_rhorank)
-        cl.enqueue_copy(queue, nh, d_nh)
-        cl.enqueue_copy(queue, nhd, d_nhd)
-
-        dfevt['rho'] = pd.Series(rho, index=dfevt.index)
-        dfevt['rhorank'] = pd.Series(rhorank, index=dfevt.index)
-        dfevt['nh'] = pd.Series(nh, index=dfevt.index)
-        dfevt['nhd'] = pd.Series(nhd, index=dfevt.index)
-        # ENDING CUDA
-        ##########################################
-        
-        
-        
-        # 3. now decide seeds and asign rechits to seeds
-        # rho,rhorank,nh,nhd = dfevt.rho,dfevt.rhorank,dfevt.nh,dfevt.nhd
-        
-        cluster = -np.ones(nrech,int)
-        DECISION_RHO = rho.max()/self.DECISION_RHO_KAPPA
-
-        # 2.1 convert rhorank to argsortrho 0(N)
-        argsortrho = np.zeros(nrech,int)
-        argsortrho[rhorank] = np.arange(nrech)
-
-        # 2.2 find seeds
-        selectseed = (rho>DECISION_RHO) & (nhd>self.DECISION_NHD)
-        seedrho = rho[selectseed]
-        temp = seedrho.argsort()[::-1]
-        seedid = np.empty(len(seedrho), int)
-        seedid[temp] = np.arange(len(seedrho))
-        cluster[selectseed] = seedid
-        dfevt['isseed'] = pd.Series(selectseed.astype(int), index=dfevt.index)
-
-        # 2.3 asign clusters to seeds
-        for ith in range(nrech):
-            i = argsortrho[ith]
-            if  (cluster[i]<0) & (nhd[i]<self.CONTINUITY_NHD):
-                cluster[i] = cluster[nh[i]]
-        dfevt['cluster'] = pd.Series(cluster, index=dfevt.index)
-        
-        ########################################
-        ##        END of image algorithm      ##
-        ##             output result          ##
-        ########################################
-        clustx,clusty,clustz,clustenergy = [],[],[],[]
-        for seed in seedid:
-            sel = (dfevt.cluster == seed)
-            seedenergy = np.sum(dfevt.energy[sel])
-            seedx = np.sum(dfevt.energy[sel]*dfevt.ox[sel])/seedenergy
-            seedy = np.sum(dfevt.energy[sel]*dfevt.oy[sel])/seedenergy
-            seedz = np.sum(dfevt.energy[sel]*dfevt.oz[sel])/seedenergy
-            
-            clustenergy.append(seedenergy)
-            clustx.append(seedx)
-            clusty.append(seedy)
-            clustz.append(seedz)
-        clustenergy = np.array(clustenergy)
-        clustx = np.array(clustx)
-        clusty = np.array(clusty)
-        clustz = np.array(clustz)
-        clust_inputenergy    = np.sum(dfevt.energy)
-        clust_includedenergy = np.sum(clustenergy)
-
-        dfclus = pd.DataFrame({"id"     :[ievent],
-                            "clust_n":[len(clustx)],
-                            "clust_x":[clustx],
-                            "clust_y":[clusty],
-                            "clust_z":[clustz],
-                            "clust_energy":[clustenergy],
-                            "clust_inputenergy":[clust_inputenergy],
-                            "clust_includedenergy":[clust_includedenergy]})
-        return dfevt,dfclus
-
 
