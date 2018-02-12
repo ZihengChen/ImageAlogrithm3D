@@ -1,6 +1,6 @@
 from pylab import *
 import pandas as pd
-from ImageAlgoKD_kernel import *
+from ImageAlgoKD_kernel_cuda import *
 
 class ImageAlgoKD():
     def __init__(self,

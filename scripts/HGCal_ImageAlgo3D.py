@@ -1,7 +1,7 @@
 from pylab import *
 import pandas as pd
 import tqdm
-from HGCal_ImageAlgo3D_kernel import *
+from HGCal_ImageAlgo3D_kernel_cuda import *
 
 
 class ImagingAlgo3D():
@@ -11,7 +11,7 @@ class ImagingAlgo3D():
                  LAYER_DISTANCE     = 1.2,  #cm
                  KERNAL_R           = 4.0,  #cm
                  KERNAL_R_NORM      = 2.0,  #cm
-                 KERNAL_R_POWER     = 2.0,  #cm
+                 KERNAL_R_POWER     = 2.0,  
                  KERNAL_LAYER       = 2.0,  #number of layer
                  DECISION_RHO_KAPPA = 10.0, #fractio of max rho
                  DECISION_NHD       = 4.0,  #cm
